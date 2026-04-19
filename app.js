@@ -71,7 +71,9 @@ function connectWS() {
     document.getElementById('price-low').textContent  = fmt(low);
 
     if (candleSeries) {
-      candleSeries.update({ time: Math.floor(Date.now()/1000), open: price, high: price, low: price, close: price });
+      const t = Math.floor(Date.now() / 1000);
+      const barTime = t - (t % (currentTf * 60));
+      candleSeries.update({ time: barTime, open: price, high: price, low: price, close: price });
     }
 
     updateTradeInfo();

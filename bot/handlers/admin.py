@@ -13,6 +13,56 @@ def resolve_user(arg):
         return user[0] if user else None
     return int(arg)
 
+def fmt_rub(usd):
+    return f"₽{round(usd * 90):,}".replace(',', ' ')
+
+@router.message(Command("setbalanceall"))
+async def set_balance_all_cmd(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) != 2:
+        await message.answer("Использование: /setbalanceall <сумма в рублях>")
+        return
+    try:
+        amount_rub = float(parts[1])
+        amount_usd = amount_rub / 90
+    except ValueError:
+        await message.answer("Неверный формат суммы.")
+        return
+    users = db.get_all_users()
+    for user in users:
+        db.set_balance(user[0], amount_usd)
+    await message.answer(f"✅ Всем {len(users)} юзерам установлен баланс: ₽{int(amount_rub):,}".replace(',', ' '))
+
+@router.message(Command("resetbalanceall"))
+async def reset_balance_all_cmd(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    users = db.get_all_users()
+    for user in users:
+        db.set_balance(user[0], 0)
+        positions = db.get_open_positions(user[0])
+        for pos in positions:
+            db.close_position(pos[0], -pos[5])
+    await message.answer(f"✅ Баланс всех {len(users)} юзеров обнулён, все позиции закрыты.")
+
+@router.message(Command("users"))
+async def users_list_cmd(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    users = db.get_all_users()
+    if not users:
+        await message.answer("Нет зарегистрированных юзеров.")
+        return
+    text = f"👥 Все юзеры ({len(users)}):\n\n"
+    for u in users:
+        uid, username, balance = u
+        text += f"@{username or '—'} | {uid} | {fmt_rub(balance)}\n"
+    if len(text) > 4000:
+        text = text[:4000] + "\n..."
+    await message.answer(text)
+
 @router.message(Command("checkbalance"))
 async def check_balance_cmd(message: Message):
     if message.from_user.id != ADMIN_ID:
@@ -27,11 +77,11 @@ async def check_balance_cmd(message: Message):
         return
     bal = db.get_balance(uid)
     positions = db.get_open_positions(uid)
-    text = f"👤 {parts[1]}\n💰 Баланс: {bal:.2f} USD\n📊 Открытых позиций: {len(positions)}"
+    text = f"👤 {parts[1]}\n💰 Баланс: {fmt_rub(bal)}\n📊 Открытых позиций: {len(positions)}"
     if positions:
         text += "\n\n"
         for pos in positions:
-            text += f"#{pos[0]} {pos[2]} {'LONG' if pos[3]=='long' else 'SHORT'} x{pos[4]} | {pos[5]:.2f} USD\n"
+            text += f"#{pos[0]} {pos[2]} {'LONG' if pos[3]=='long' else 'SHORT'} x{pos[4]} | {fmt_rub(pos[5])}\n"
     await message.answer(text)
 
 @router.message(Command("setbalance"))
@@ -40,19 +90,19 @@ async def set_balance_cmd(message: Message):
         return
     parts = message.text.split()
     if len(parts) != 3:
-        await message.answer("Использование: /setbalance @username <сумма>")
+        await message.answer("Использование: /setbalance @username <сумма в рублях>")
         return
     uid = resolve_user(parts[1])
     if not uid:
         await message.answer("Юзер не найден.")
         return
     try:
-        amount = float(parts[2])
+        amount_usd = float(parts[2]) / 90
     except ValueError:
         await message.answer("Неверный формат суммы.")
         return
-    db.set_balance(uid, amount)
-    await message.answer(f"✅ Баланс {parts[1]} установлен: {amount} USD")
+    db.set_balance(uid, amount_usd)
+    await message.answer(f"✅ Баланс {parts[1]} установлен: ₽{int(float(parts[2])):,}".replace(',', ' '))
 
 @router.message(Command("resetbalance"))
 async def reset_balance_cmd(message: Message):
@@ -99,7 +149,7 @@ async def admin_deposits(call: CallbackQuery):
     buttons = []
     for dep in deps:
         dep_id, user_id, amount, created_at = dep
-        text += f"#{dep_id} | Юзер: {user_id} | Сумма: {amount:.2f} USD | {created_at}\n"
+        text += f"#{dep_id} | Юзер: {user_id} | {fmt_rub(amount)} | {created_at}\n"
         buttons.append([
             InlineKeyboardButton(text=f"✅ #{dep_id}", callback_data=f"dep_approve_{dep_id}"),
             InlineKeyboardButton(text=f"❌ #{dep_id}", callback_data=f"dep_reject_{dep_id}")
@@ -121,7 +171,7 @@ async def admin_withdrawals(call: CallbackQuery):
     buttons = []
     for wd in wds:
         w_id, user_id, amount, created_at = wd
-        text += f"#{w_id} | Юзер: {user_id} | Сумма: {amount:.2f} USD | {created_at}\n"
+        text += f"#{w_id} | Юзер: {user_id} | {fmt_rub(amount)} | {created_at}\n"
         buttons.append([
             InlineKeyboardButton(text=f"✅ #{w_id}", callback_data=f"wd_approve_{w_id}"),
             InlineKeyboardButton(text=f"❌ #{w_id}", callback_data=f"wd_reject_{w_id}")
@@ -137,7 +187,7 @@ async def dep_approve(call: CallbackQuery):
     row = db.resolve_deposit(dep_id, "approved")
     if row:
         from main import bot
-        await bot.send_message(row[0], f"✅ Пополнение #{dep_id} на {row[1]:.2f} USD подтверждено!")
+        await bot.send_message(row[0], f"✅ Пополнение #{dep_id} на {fmt_rub(row[1])} подтверждено!")
     await call.message.edit_text(f"✅ Заявка #{dep_id} принята.")
 
 @router.callback_query(F.data.startswith("dep_reject_"))
@@ -159,7 +209,7 @@ async def wd_approve(call: CallbackQuery):
     row = db.resolve_withdrawal(w_id, "approved")
     if row:
         from main import bot
-        await bot.send_message(row[0], f"✅ Вывод #{w_id} на {row[1]:.2f} USD выполнен!")
+        await bot.send_message(row[0], f"✅ Вывод #{w_id} на {fmt_rub(row[1])} выполнен!")
     await call.message.edit_text(f"✅ Вывод #{w_id} выполнен.")
 
 @router.callback_query(F.data.startswith("wd_reject_"))
@@ -207,8 +257,8 @@ async def admin_positions(call: CallbackQuery):
         text += (
             f"#{pos_id} | Юзер: {user_id}\n"
             f"{symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
-            f"Вход: ${entry_price:,.2f} | Сейчас: ${current_price:,.2f}\n"
-            f"{emoji} PnL: {pnl:+.2f} USD\n\n"
+            f"Вход: {entry_price:,.2f} | Сейчас: {current_price:,.2f}\n"
+            f"{emoji} PnL: {fmt_rub(pnl)}\n\n"
         )
         buttons.append([InlineKeyboardButton(text=f"💥 Ликвидировать #{pos_id}", callback_data=f"admin_liq_{pos_id}")])
     buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")])
@@ -235,9 +285,9 @@ async def admin_liquidate(call: CallbackQuery):
         user_id,
         f"⚠️ Извините, но ваша позиция была ликвидирована.\n\n"
         f"📌 #{pos_id} {symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
-        f"💵 Цена входа: ${entry_price:,.2f}\n"
-        f"📉 Цена ликвидации: ${current_price:,.2f}\n"
-        f"💸 Потеря: -{amount:.2f} USD"
+        f"Цена входа: {entry_price:,.2f}\n"
+        f"Цена ликвидации: {current_price:,.2f}\n"
+        f"💸 Потеря: {fmt_rub(amount)}"
     )
     await call.answer(f"Позиция #{pos_id} ликвидирована.")
     await admin_positions(call)

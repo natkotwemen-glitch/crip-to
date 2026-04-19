@@ -31,9 +31,9 @@ async def monitor_positions():
                                 user_id,
                                 f"⚠️ Извините, но ваша позиция была ликвидирована.\n\n"
                                 f"📌 #{pos_id} {symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
-                                f"💵 Цена входа: ${entry_price:,.2f}\n"
-                                f"📉 Цена ликвидации: ${current_price:,.2f}\n"
-                                f"💸 Потеря: -{amount:.2f} USD"
+                                f"Цена входа: {entry_price:,.2f}\n"
+                                f"Цена ликвидации: {current_price:,.2f}\n"
+                                f"💸 Потеря: ₽{round(amount * 90):,}".replace(',', ' ')
                             )
                         except Exception:
                             pass

@@ -46,6 +46,14 @@ def init_db():
     conn.commit()
     conn.close()
 
+def get_all_users():
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("SELECT user_id, username, balance FROM users")
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
 def get_user_by_username(username):
     conn = sqlite3.connect(DB)
     c = conn.cursor()

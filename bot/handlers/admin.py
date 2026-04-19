@@ -25,6 +25,7 @@ async def admin_panel(message: Message):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📥 Заявки на пополнение", callback_data="admin_deposits")],
             [InlineKeyboardButton(text="📤 Заявки на вывод", callback_data="admin_withdrawals")],
+            [InlineKeyboardButton(text="📊 Все открытые позиции", callback_data="admin_positions")],
         ])
     )
 
@@ -125,5 +126,57 @@ async def admin_back(call: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📥 Заявки на пополнение", callback_data="admin_deposits")],
             [InlineKeyboardButton(text="📤 Заявки на вывод", callback_data="admin_withdrawals")],
+            [InlineKeyboardButton(text="📊 Все открытые позиции", callback_data="admin_positions")],
         ])
     )
+
+@router.callback_query(F.data == "admin_positions")
+async def admin_positions(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        return
+    positions = db.get_all_open_positions()
+    if not positions:
+        await call.message.edit_text("Нет открытых позиций.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")]
+        ]))
+        return
+    from utils.prices import get_price, calc_pnl
+    text = "📊 Все открытые позиции:\n\n"
+    buttons = []
+    for pos in positions:
+        pos_id, user_id, symbol, direction, leverage, amount, entry_price, status, created_at = pos
+        current_price = await get_price(symbol)
+        pnl = calc_pnl(direction, leverage, amount, entry_price, current_price)
+        emoji = "🟢" if pnl >= 0 else "🔴"
+        text += (
+            f"#{pos_id} | Юзер: {user_id}\n"
+            f"{symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
+            f"Вход: ${entry_price:,.2f} | Сейчас: ${current_price:,.2f}\n"
+            f"{emoji} PnL: {pnl:+.2f} USD\n\n"
+        )
+        buttons.append([InlineKeyboardButton(text=f"💥 Ликвидировать #{pos_id}", callback_data=f"admin_liq_{pos_id}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")])
+    # разбиваем на части если текст слишком длинный
+    if len(text) > 4000:
+        text = text[:4000] + "\n..."
+    await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+
+@router.callback_query(F.data.startswith("admin_liq_"))
+async def admin_liquidate(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        return
+    pos_id = int(call.data.split("_")[2])
+    positions = db.get_all_open_positions()
+    pos = next((p for p in positions if p[0] == pos_id), None)
+    if not pos:
+        await call.answer("Позиция не найдена.")
+        return
+    _, user_id, symbol, direction, leverage, amount, entry_price, status, created_at = pos
+    from utils.prices import get_price, calc_pnl
+    current_price = await get_price(symbol)
+    pnl = calc_pnl(direction, leverage, amount, entry_price, current_price)
+    db.close_position(pos_id, -amount)  # ликвидация = полный убыток
+    from main import bot
+    await bot.send_message(user_id, f"💥 Позиция #{pos_id} ликвидирована!\n{symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\nУбыток: -{amount:.2f} USD")
+    await call.answer(f"Позиция #{pos_id} ликвидирована.")
+    await admin_positions(call)

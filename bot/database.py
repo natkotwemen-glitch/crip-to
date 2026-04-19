@@ -148,6 +148,14 @@ def open_position(user_id, symbol, direction, leverage, amount, entry_price):
     conn.close()
     return pos_id
 
+def get_all_open_positions():
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("SELECT * FROM positions WHERE status = 'open' ORDER BY created_at DESC")
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
 def get_open_positions(user_id):
     conn = sqlite3.connect(DB)
     c = conn.cursor()

@@ -163,3 +163,32 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 /* Toast */
 .toast{position:fixed;bottom:75px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:300;white-space:nowrap;animation:toastIn .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.4)}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* WS dot */
+.ws-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:background .3s;align-self:center}
+.ws-dot.live{background:#0ecb81;box-shadow:0 0 6px #0ecb8188;animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Settings */
+.settings-block{margin-top:20px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px}
+.settings-title{font-size:13px;font-weight:700;margin-bottom:14px;color:var(--text2)}
+.settings-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.settings-row:last-child{margin-bottom:0}
+.settings-row>span{font-size:12px;color:var(--text2)}
+
+/* Color picks */
+.color-picks{display:flex;gap:8px}
+.color-pick{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s}
+.color-pick.active{border-color:#fff;transform:scale(1.2)}
+
+/* Currency picks */
+.cur-picks{display:flex;gap:6px}
+.cur-pick{padding:4px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s}
+.cur-pick.active{background:var(--yellow);border-color:var(--yellow);color:#000}
+
+/* Pos badge */
+#pos-badge{background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:1px 5px;border-radius:10px;margin-left:3px}
+
+/* Header bal clickable */
+.header-bal{cursor:pointer;user-select:none;transition:opacity .15s}
+.header-bal:active{opacity:.7}

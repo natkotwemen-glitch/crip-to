@@ -10,19 +10,81 @@ let currentDirection = 'long';
 let currentLeverage = 10;
 let currentTf = 15;
 let balance = 0;
-let chart, candleSeries;
+let currency = localStorage.getItem('currency') || 'coins';
+let accentColor = localStorage.getItem('accent') || '#f0b90b';
+let fxRates = { usd: 1, eur: 0.92, rub: 90 };
+let chart, candleSeries, ws;
 
 const COIN_IDS = { BTC:'bitcoin', ETH:'ethereum', SOL:'solana', BNB:'binancecoin', XRP:'ripple' };
+const WS_SYMBOLS = { BTC:'btcusdt', ETH:'ethusdt', SOL:'solusdt', BNB:'bnbusdt', XRP:'xrpusdt' };
 const TF_DAYS = { 1:'1', 5:'1', 15:'1', 60:'7', 240:'14', 1440:'30', 10080:'90', 43200:'365' };
+const CUR_LABELS = { coins:'монет', usd:'USD', eur:'EUR', rub:'RUB' };
+const CUR_SIGNS = { coins:'', usd:'$', eur:'€', rub:'₽' };
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', async () => {
+  applyAccent(accentColor);
+  applyCurrencyUI();
   initChart();
   await Promise.all([loadBalance(), loadPrice()]);
   loadCandles();
   loadPositions();
-  setInterval(async () => { await loadPrice(); updateTradeInfo(); }, 8000);
+  connectWS();
+  fetchFxRates();
 });
+
+// ── WebSocket realtime ────────────────────────────────────────────────────────
+function connectWS() {
+  if (ws) ws.close();
+  const sym = WS_SYMBOLS[currentSymbol];
+  ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@ticker`);
+  const dot = document.getElementById('ws-dot');
+
+  ws.onopen = () => { dot.classList.add('live'); };
+  ws.onclose = () => { dot.classList.remove('live'); setTimeout(connectWS, 3000); };
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    const price = parseFloat(d.c);
+    const change = parseFloat(d.P);
+    const high = parseFloat(d.h);
+    const low = parseFloat(d.l);
+    if (!price) return;
+
+    const isUp = price >= currentPrice;
+    currentPrice = price;
+
+    // animate price
+    const el = document.getElementById('current-price');
+    el.textContent = `$${fmt(price)}`;
+    el.style.color = isUp ? '#0ecb81' : '#f6465d';
+
+    const badge = document.getElementById('price-change');
+    badge.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+    badge.className = `price-badge${change >= 0 ? '' : ' red'}`;
+
+    document.getElementById('price-high').textContent = `$${fmt(high)}`;
+    document.getElementById('price-low').textContent = `$${fmt(low)}`;
+
+    // update last candle
+    if (candleSeries) {
+      candleSeries.update({ time: Math.floor(Date.now()/1000), open: price, high: price, low: price, close: price });
+    }
+
+    updateTradeInfo();
+    updateBalanceUI();
+  };
+}
+
+// ── FX rates ──────────────────────────────────────────────────────────────────
+async function fetchFxRates() {
+  try {
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    const d = await res.json();
+    fxRates = { usd: 1, eur: d.rates.EUR || 0.92, rub: d.rates.RUB || 90 };
+  } catch(e) {}
+}
 
 // ── Chart ─────────────────────────────────────────────────────────────────────
 function initChart() {
@@ -30,7 +92,7 @@ function initChart() {
   chart = LightweightCharts.createChart(el, {
     width: el.clientWidth, height: 190,
     layout: { background: { color: '#0b0e11' }, textColor: '#848e9c' },
-    grid: { vertLines: { color: '#1e232966' }, horzLines: { color: '#1e232966' } },
+    grid: { vertLines: { color: '#1e232944' }, horzLines: { color: '#1e232944' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     rightPriceScale: { borderColor: '#2b3139', scaleMargins: { top: 0.1, bottom: 0.1 } },
     timeScale: { borderColor: '#2b3139', timeVisible: true, secondsVisible: false },
@@ -52,19 +114,18 @@ async function loadCandles() {
     const res = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=${days}`);
     const data = await res.json();
     if (!Array.isArray(data)) return;
-    const candles = data.map(d => ({ time: Math.floor(d[0]/1000), open:d[1], high:d[2], low:d[3], close:d[4] }))
+    const candles = data
+      .map(d => ({ time: Math.floor(d[0]/1000), open:d[1], high:d[2], low:d[3], close:d[4] }))
       .filter((c,i,a) => i===0 || c.time > a[i-1].time);
     candleSeries.setData(candles);
     chart.timeScale().fitContent();
-  } catch(e) { console.log(e); }
+  } catch(e) {}
   showLoader(false);
 }
 
-function showLoader(v) {
-  document.getElementById('chart-loader').classList.toggle('hidden', !v);
-}
+function showLoader(v) { document.getElementById('chart-loader').classList.toggle('hidden', !v); }
 
-// ── Price ─────────────────────────────────────────────────────────────────────
+// ── Price (initial) ───────────────────────────────────────────────────────────
 async function loadPrice() {
   try {
     const id = COIN_IDS[currentSymbol];
@@ -73,24 +134,15 @@ async function loadPrice() {
     const info = d[id];
     currentPrice = info.usd;
     const change = info.usd_24h_change || 0;
-    const isUp = change >= 0;
-
-    animatePrice(currentPrice, isUp);
+    document.getElementById('current-price').textContent = `$${fmt(currentPrice)}`;
+    document.getElementById('current-price').style.color = change >= 0 ? '#0ecb81' : '#f6465d';
     const badge = document.getElementById('price-change');
-    badge.textContent = `${isUp?'+':''}${change.toFixed(2)}%`;
-    badge.className = `price-badge${isUp?'':' red'}`;
+    badge.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+    badge.className = `price-badge${change >= 0 ? '' : ' red'}`;
     document.getElementById('price-high').textContent = `$${fmt(info.usd_24h_high||0)}`;
     document.getElementById('price-low').textContent = `$${fmt(info.usd_24h_low||0)}`;
     updateTradeInfo();
   } catch(e) {}
-}
-
-function animatePrice(price, isUp) {
-  const el = document.getElementById('current-price');
-  el.style.color = isUp ? '#0ecb81' : '#f6465d';
-  el.style.transform = 'scale(1.05)';
-  el.textContent = `$${fmt(price)}`;
-  setTimeout(() => el.style.transform = 'scale(1)', 200);
 }
 
 // ── Balance ───────────────────────────────────────────────────────────────────
@@ -104,8 +156,62 @@ async function loadBalance() {
 }
 
 function updateBalanceUI() {
-  document.querySelector('#header-balance .bal-num').textContent = balance.toFixed(2);
-  document.querySelector('.wallet-num').textContent = balance.toFixed(2);
+  const converted = convertBalance(balance);
+  const sign = CUR_SIGNS[currency];
+  const label = CUR_LABELS[currency];
+  document.getElementById('bal-display').textContent = `${sign}${converted}`;
+  document.getElementById('bal-cur-label').textContent = label;
+  document.getElementById('wallet-num').textContent = `${sign}${converted}`;
+  document.getElementById('wallet-cur').textContent = label;
+}
+
+function convertBalance(coins) {
+  if (currency === 'coins') return coins.toFixed(2);
+  // 1 монета = 1 USD условно, конвертируем
+  const usd = coins;
+  if (currency === 'usd') return usd.toFixed(2);
+  if (currency === 'eur') return (usd * fxRates.eur).toFixed(2);
+  if (currency === 'rub') return Math.round(usd * fxRates.rub).toLocaleString('ru');
+  return coins.toFixed(2);
+}
+
+function cycleCurrency() {
+  const order = ['coins', 'usd', 'eur', 'rub'];
+  const idx = order.indexOf(currency);
+  currency = order[(idx + 1) % order.length];
+  localStorage.setItem('currency', currency);
+  applyCurrencyUI();
+  updateBalanceUI();
+}
+
+function setCurrency(cur) {
+  currency = cur;
+  localStorage.setItem('currency', cur);
+  applyCurrencyUI();
+  updateBalanceUI();
+}
+
+function applyCurrencyUI() {
+  document.querySelectorAll('.cur-pick').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim().toLowerCase() === CUR_LABELS[currency] || b.onclick?.toString().includes(`'${currency}'`));
+  });
+}
+
+// ── Accent color ──────────────────────────────────────────────────────────────
+function setAccent(color) {
+  accentColor = color;
+  localStorage.setItem('accent', color);
+  applyAccent(color);
+  document.querySelectorAll('.color-pick').forEach(el => {
+    el.classList.toggle('active', el.dataset.color === color);
+  });
+}
+
+function applyAccent(color) {
+  document.documentElement.style.setProperty('--yellow', color);
+  document.querySelectorAll('.color-pick').forEach(el => {
+    el.classList.toggle('active', el.dataset.color === color);
+  });
 }
 
 // ── Positions ─────────────────────────────────────────────────────────────────
@@ -118,13 +224,11 @@ async function loadPositions() {
 }
 
 function renderPositions(list) {
-  const cnt = document.getElementById('pos-count');
-  cnt.textContent = list.length;
-  cnt.classList.toggle('hidden', list.length === 0);
-
+  const badge = document.getElementById('pos-badge');
+  badge.textContent = list.length;
+  badge.classList.toggle('hidden', list.length === 0);
   const el = document.getElementById('positions-list');
   if (!list.length) { el.innerHTML = '<div class="empty-msg">Нет открытых позиций</div>'; return; }
-
   el.innerHTML = list.map(p => {
     const pnl = calcPnl(p.direction, p.leverage, p.amount, p.entry_price, currentPrice);
     const pct = ((pnl / p.amount) * 100).toFixed(1);
@@ -204,11 +308,8 @@ async function openPosition() {
       body: JSON.stringify({ user_id:userId, symbol:currentSymbol, direction:currentDirection, leverage:currentLeverage, amount:amt, entry_price:currentPrice })
     });
     const d = await res.json();
-    if (d.ok) {
-      showToast(`✅ Позиция #${d.position_id} открыта`);
-      document.getElementById('trade-amount').value = '';
-      await loadBalance(); loadPositions();
-    } else showToast(d.error || 'Ошибка');
+    if (d.ok) { showToast(`✅ Позиция #${d.position_id} открыта`); document.getElementById('trade-amount').value=''; await loadBalance(); loadPositions(); }
+    else showToast(d.error || 'Ошибка');
   } catch(e) { showToast('Ошибка сервера'); }
 }
 
@@ -219,11 +320,7 @@ async function closePosition(id) {
       body: JSON.stringify({ user_id:userId, position_id:id, current_price:currentPrice })
     });
     const d = await res.json();
-    if (d.ok) {
-      const s = d.pnl >= 0 ? '+' : '';
-      showToast(`Закрыто: ${s}${d.pnl.toFixed(2)} монет`);
-      await loadBalance(); loadPositions();
-    }
+    if (d.ok) { showToast(`Закрыто: ${d.pnl>=0?'+':''}${d.pnl.toFixed(2)} монет`); await loadBalance(); loadPositions(); }
   } catch(e) { showToast('Ошибка'); }
 }
 
@@ -231,7 +328,7 @@ async function closePosition(id) {
 function toggleForm(type) {
   const dep = document.getElementById('form-deposit');
   const wd = document.getElementById('form-withdraw');
-  if (type === 'deposit') { dep.classList.toggle('hidden'); wd.classList.add('hidden'); }
+  if (type==='deposit') { dep.classList.toggle('hidden'); wd.classList.add('hidden'); }
   else { wd.classList.toggle('hidden'); dep.classList.add('hidden'); }
 }
 
@@ -252,11 +349,11 @@ async function submitWithdraw() {
   try {
     const res = await fetch(`${API}/withdraw`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:userId,amount:amt}) });
     const d = await res.json();
-    if (d.ok) { showToast('✅ Заявка на вывод отправлена'); document.getElementById('withdraw-amount').value=''; document.getElementById('form-withdraw').classList.add('hidden'); await loadBalance(); }
+    if (d.ok) { showToast('✅ Заявка отправлена'); document.getElementById('withdraw-amount').value=''; document.getElementById('form-withdraw').classList.add('hidden'); await loadBalance(); }
   } catch(e) { showToast('Ошибка'); }
 }
 
-// ── Pair selector ─────────────────────────────────────────────────────────────
+// ── Pair ──────────────────────────────────────────────────────────────────────
 document.getElementById('pair-selector').addEventListener('click', () => {
   document.getElementById('pair-dropdown').classList.toggle('hidden');
 });
@@ -265,7 +362,7 @@ document.querySelectorAll('.dropdown-item').forEach(el => {
     currentSymbol = el.dataset.symbol;
     document.getElementById('current-pair').textContent = `${currentSymbol}/USD`;
     document.getElementById('pair-dropdown').classList.add('hidden');
-    await loadPrice(); loadCandles();
+    await loadPrice(); loadCandles(); connectWS();
   });
 });
 document.addEventListener('click', e => {
@@ -283,25 +380,13 @@ document.querySelectorAll('.tf-btn').forEach(btn => {
   });
 });
 
-// ── Tabs / Nav ────────────────────────────────────────────────────────────────
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
-    if (tab.dataset.tab === 'positions') loadPositions();
-    if (tab.dataset.tab === 'wallet') loadBalance();
-  });
-});
-
+// ── Nav ───────────────────────────────────────────────────────────────────────
 function switchNav(name, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id===`tab-${name}`));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   if (name==='positions') loadPositions();
-  if (name==='wallet') loadBalance();
+  if (name==='wallet') { loadBalance(); applyAccent(accentColor); }
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

@@ -18,9 +18,9 @@
       <span id="current-pair">BTC/USD</span>
       <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#848e9c" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
     </div>
-    <div class="header-bal">
+    <div class="header-bal" id="bal-toggle" onclick="cycleCurrency()">
       <div class="header-bal-label">Баланс</div>
-      <div class="header-bal-val" id="header-balance"><span class="bal-num">0.00</span> <span class="bal-cur">монет</span></div>
+      <div class="header-bal-val"><span class="bal-num" id="bal-display">0.00</span> <span class="bal-cur" id="bal-cur-label">монет</span></div>
     </div>
   </header>
 
@@ -42,6 +42,7 @@
     <div class="price-right">
       <div class="price-stat"><span>24h H</span><b id="price-high">—</b></div>
       <div class="price-stat"><span>24h L</span><b id="price-low">—</b></div>
+      <div class="ws-dot" id="ws-dot" title="Realtime"></div>
     </div>
   </div>
 
@@ -60,27 +61,14 @@
   <!-- Chart -->
   <div id="chart-wrap">
     <div id="chart-container"></div>
-    <div class="chart-loader" id="chart-loader">
-      <div class="spinner"></div>
-    </div>
-  </div>
-
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab active" data-tab="trade">Торговля</button>
-    <button class="tab" data-tab="positions">Позиции <span class="pos-count hidden" id="pos-count">0</span></button>
-    <button class="tab" data-tab="wallet">Кошелёк</button>
+    <div class="chart-loader" id="chart-loader"><div class="spinner"></div></div>
   </div>
 
   <!-- TRADE TAB -->
   <div class="tab-content active" id="tab-trade">
     <div class="dir-toggle">
-      <button class="dir-btn long active" id="btn-long" onclick="setDirection('long')">
-        <span class="dir-arrow">↑</span> LONG
-      </button>
-      <button class="dir-btn short" id="btn-short" onclick="setDirection('short')">
-        <span class="dir-arrow">↓</span> SHORT
-      </button>
+      <button class="dir-btn long active" id="btn-long" onclick="setDirection('long')">↑ LONG</button>
+      <button class="dir-btn short" id="btn-short" onclick="setDirection('short')">↓ SHORT</button>
     </div>
 
     <div class="section-label">Плечо</div>
@@ -115,9 +103,7 @@
       <div class="stat-row"><span>Цена ликвидации</span><span class="red" id="liq-price">—</span></div>
     </div>
 
-    <button class="open-btn long" id="open-btn" onclick="openPosition()">
-      Открыть LONG
-    </button>
+    <button class="open-btn long" id="open-btn" onclick="openPosition()">Открыть LONG</button>
   </div>
 
   <!-- POSITIONS TAB -->
@@ -129,13 +115,11 @@
   <div class="tab-content" id="tab-wallet">
     <div class="wallet-card">
       <div class="wallet-card-label">Доступный баланс</div>
-      <div class="wallet-card-amount" id="wallet-amount">
-        <span class="wallet-num">0.00</span>
-        <span class="wallet-cur">монет</span>
+      <div class="wallet-card-amount">
+        <span class="wallet-num" id="wallet-num">0.00</span>
+        <span class="wallet-cur" id="wallet-cur">монет</span>
       </div>
-      <div class="wallet-dots" id="wallet-dots">
-        <span></span><span></span><span></span><span></span><span></span>
-      </div>
+      <div class="wallet-dots"><span></span><span></span><span></span><span></span><span></span></div>
     </div>
     <div class="wallet-btns">
       <button class="w-btn green" onclick="toggleForm('deposit')">📥 Пополнить</button>
@@ -151,20 +135,45 @@
       <input type="number" id="withdraw-amount" placeholder="Введи сумму">
       <button class="confirm-btn" onclick="submitWithdraw()">Отправить заявку</button>
     </div>
+
+    <!-- Settings -->
+    <div class="settings-block">
+      <div class="settings-title">⚙️ Настройки</div>
+      <div class="settings-row">
+        <span>Акцентный цвет</span>
+        <div class="color-picks">
+          <div class="color-pick" data-color="#f0b90b" style="background:#f0b90b" onclick="setAccent('#f0b90b')"></div>
+          <div class="color-pick" data-color="#0ecb81" style="background:#0ecb81" onclick="setAccent('#0ecb81')"></div>
+          <div class="color-pick" data-color="#1890ff" style="background:#1890ff" onclick="setAccent('#1890ff')"></div>
+          <div class="color-pick" data-color="#a855f7" style="background:#a855f7" onclick="setAccent('#a855f7')"></div>
+          <div class="color-pick" data-color="#f6465d" style="background:#f6465d" onclick="setAccent('#f6465d')"></div>
+          <div class="color-pick" data-color="#ff6b00" style="background:#ff6b00" onclick="setAccent('#ff6b00')"></div>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span>Валюта баланса</span>
+        <div class="cur-picks">
+          <button class="cur-pick active" onclick="setCurrency('coins')">монеты</button>
+          <button class="cur-pick" onclick="setCurrency('usd')">USD</button>
+          <button class="cur-pick" onclick="setCurrency('eur')">EUR</button>
+          <button class="cur-pick" onclick="setCurrency('rub')">RUB</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Bottom nav -->
   <nav class="bottom-nav">
-    <button class="nav-btn active" onclick="switchNav('trade', this)">
+    <button class="nav-btn active" onclick="switchNav('trade',this)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       <span>Торговля</span>
     </button>
-    <button class="nav-btn" onclick="switchNav('positions', this)">
+    <button class="nav-btn" onclick="switchNav('positions',this)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-      <span>Позиции</span>
+      <span>Позиции <span id="pos-badge" class="hidden">0</span></span>
     </button>
-    <button class="nav-btn" onclick="switchNav('wallet', this)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+    <button class="nav-btn" onclick="switchNav('wallet',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/></svg>
       <span>Кошелёк</span>
     </button>
   </nav>

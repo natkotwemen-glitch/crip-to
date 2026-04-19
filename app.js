@@ -10,7 +10,8 @@ let currentDirection = 'long';
 let currentLeverage = 10;
 let currentTf = 15;
 let balance = 0;
-let currency = localStorage.getItem('currency') || 'usd';
+let currency = 'rub';
+
 let accentColor = localStorage.getItem('accent') || '#f0b90b';
 let fxRates = { usd: 1, eur: 0.92, rub: 90 };
 let chart, candleSeries, ws;
@@ -19,8 +20,8 @@ let priceCache = {};
 let lastCandle = null;
 
 const WS_SYMBOLS = { BTC:'btcusdt', ETH:'ethusdt', SOL:'solusdt', BNB:'bnbusdt', XRP:'xrpusdt' };
-const CUR_LABELS = { usd:'USD', eur:'EUR', rub:'RUB' };
-const CUR_SIGNS  = { usd:'$', eur:'\u20ac', rub:'\u20bd' };
+const CUR_LABELS = { rub: 'RUB' };
+const CUR_SIGNS  = { rub: '\u20bd' };
 const TF_BINANCE = { 1:'1m', 5:'5m', 15:'15m', 60:'1h', 240:'4h', 1440:'1d', 10080:'1w', 43200:'1M' };
 
 // Boot
@@ -179,41 +180,18 @@ async function loadBalance() {
 
 function updateBalanceUI() {
   const converted = convertBalance(balance);
-  const sign  = CUR_SIGNS[currency];
-  const label = CUR_LABELS[currency];
-  document.getElementById('bal-display').textContent  = `${sign}${converted}`;
-  document.getElementById('bal-cur-label').textContent = label;
-  document.getElementById('wallet-num').textContent   = `${sign}${converted}`;
-  document.getElementById('wallet-cur').textContent   = label;
+  document.getElementById('bal-display').textContent  = `\u20bd${converted}`;
+  document.getElementById('bal-cur-label').textContent = 'RUB';
+  document.getElementById('wallet-num').textContent   = `\u20bd${converted}`;
 }
 
 function convertBalance(coins) {
-  if (currency === 'usd')   return coins.toFixed(2);
-  if (currency === 'eur')   return (coins * fxRates.eur).toFixed(2);
-  if (currency === 'rub')   return Math.round(coins * fxRates.rub).toLocaleString('ru');
-  return coins.toFixed(2);
+  return Math.round(coins * fxRates.rub).toLocaleString('ru');
 }
 
-function cycleCurrency() {
-  const order = ['usd', 'eur', 'rub'];
-  currency = order[(order.indexOf(currency) + 1) % order.length];
-  localStorage.setItem('currency', currency);
-  applyCurrencyUI();
-  updateBalanceUI();
-}
-
-function setCurrency(cur) {
-  currency = cur;
-  localStorage.setItem('currency', cur);
-  applyCurrencyUI();
-  updateBalanceUI();
-}
-
-function applyCurrencyUI() {
-  document.querySelectorAll('.cur-pick').forEach(b => {
-    b.classList.toggle('active', b.onclick?.toString().includes(`'${currency}'`));
-  });
-}
+function cycleCurrency() {}
+function setCurrency(cur) {}
+function applyCurrencyUI() {}
 
 // Accent color
 function setAccent(color) {
@@ -302,13 +280,8 @@ function renderPositions(list) {
   }).join('');
 }
 
-// форматирование суммы в текущей валюте
 function fmtCur(usd) {
-  const sign = CUR_SIGNS[currency];
-  if (currency === 'usd') return `${sign}${usd.toFixed(2)}`;
-  if (currency === 'eur') return `${sign}${(usd * fxRates.eur).toFixed(2)}`;
-  if (currency === 'rub') return `${sign}${Math.round(usd * fxRates.rub).toLocaleString('ru')}`;
-  return `${sign}${usd.toFixed(2)}`;
+  return `\u20bd${Math.round(usd * fxRates.rub).toLocaleString('ru')}`;
 }
 
 function calcPnl(dir, lev, amt, entry, cur) {

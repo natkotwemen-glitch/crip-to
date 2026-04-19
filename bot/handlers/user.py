@@ -82,7 +82,7 @@ async def deposit_amount(message: Message, state: FSMContext):
         amount_rub = float(message.text.replace(",", "."))
         if amount_rub <= 0:
             raise ValueError
-        amount_usd = amount_rub / 90
+        amount_usd = amount_rub 
     except ValueError:
         await message.answer("Введи корректную сумму.")
         return
@@ -118,7 +118,7 @@ async def withdraw_amount(message: Message, state: FSMContext):
         amount_rub = float(message.text.replace(",", "."))
         if amount_rub <= 0:
             raise ValueError
-        amount_usd = amount_rub / 90
+        amount_usd = amount_rub 
     except ValueError:
         await message.answer("Введи корректную сумму.")
         return

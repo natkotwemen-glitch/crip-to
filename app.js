@@ -99,7 +99,6 @@ async function fetchFxRates() {
     fxRates = { usd: 1, eur: d.rates.EUR || 0.92, rub: d.rates.RUB || 90 };
   } catch(e) {}
 }
-
 // Chart
 function initChart() {
   const el = document.getElementById('chart-container');
@@ -184,12 +183,12 @@ function updateBalanceUI() {
 }
 
 function convertBalance(coins) {
-  return Math.round(coins * fxRates.rub).toLocaleString('ru');
+  return Math.round(coins).toLocaleString('ru');
 }
 
-function cycleCurrency() {}
-function setCurrency(cur) {}
-function applyCurrencyUI() {}
+function fmtCur(amount) {
+  return `\u20bd${Math.round(amount).toLocaleString('ru')}`;
+}
 
 // Accent color
 function setAccent(color) {
@@ -314,28 +313,24 @@ function updateLeverage(v) {
 }
 
 function setPercent(pct) {
-  const balRub = Math.round(balance * fxRates.rub * pct / 100);
-  document.getElementById('trade-amount').value = balRub;
+  document.getElementById('trade-amount').value = Math.round(balance * pct / 100);
   updateTradeInfo();
 }
 
 function updateTradeInfo() {
   if (!currentPrice) return;
-  const amtRub = parseFloat(document.getElementById('trade-amount').value) || 0;
-  const amt    = amtRub / (fxRates.rub || 90);
-  const liqCh  = 1 / currentLeverage;
-  const liq    = currentDirection === 'long' ? currentPrice*(1-liqCh) : currentPrice*(1+liqCh);
+  const amt   = parseFloat(document.getElementById('trade-amount').value) || 0;
+  const liqCh = 1 / currentLeverage;
+  const liq   = currentDirection === 'long' ? currentPrice*(1-liqCh) : currentPrice*(1+liqCh);
   document.getElementById('entry-price-display').textContent = fmt(currentPrice);
-  document.getElementById('position-size').textContent = amtRub > 0 ? `\u20bd${Math.round(amtRub * currentLeverage).toLocaleString('ru')}` : '\u2014';
-  document.getElementById('liq-price').textContent     = amtRub > 0 ? fmt(liq) : '\u2014';
+  document.getElementById('position-size').textContent = amt > 0 ? `\u20bd${Math.round(amt * currentLeverage).toLocaleString('ru')}` : '\u2014';
+  document.getElementById('liq-price').textContent     = amt > 0 ? fmt(liq) : '\u2014';
 }
 
-let openingPosition = false;
 async function openPosition() {
   if (openingPosition) return;
-  const amtRub = parseFloat(document.getElementById('trade-amount').value);
-  if (!amtRub || amtRub <= 0) { showToast('\u0412\u0432\u0435\u0434\u0438 \u0441\u0443\u043c\u043c\u0443'); return; }
-  const amt = amtRub / fxRates.rub;
+  const amt = parseFloat(document.getElementById('trade-amount').value);
+  if (!amt || amt <= 0) { showToast('\u0412\u0432\u0435\u0434\u0438 \u0441\u0443\u043c\u043c\u0443'); return; }
   if (amt > balance)    { showToast('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0441\u0440\u0435\u0434\u0441\u0442\u0432'); return; }
   if (!currentPrice)    { showToast('\u0426\u0435\u043d\u0430 \u043d\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u0430'); return; }
   openingPosition = true;
@@ -381,12 +376,11 @@ function toggleForm(type) {
 }
 
 async function submitWithdraw() {
-  const amtRub = parseFloat(document.getElementById('withdraw-amount').value);
-  if (!amtRub || amtRub <= 0) { showToast('\u0412\u0432\u0435\u0434\u0438 \u0441\u0443\u043c\u043c\u0443'); return; }
-  const amtUsd = amtRub / fxRates.rub; // конвертируем рубли в USD
-  if (amtUsd > balance) { showToast('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0441\u0440\u0435\u0434\u0441\u0442\u0432'); return; }
+  const amt = parseFloat(document.getElementById('withdraw-amount').value);
+  if (!amt || amt <= 0) { showToast('\u0412\u0432\u0435\u0434\u0438 \u0441\u0443\u043c\u043c\u0443'); return; }
+  if (amt > balance) { showToast('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0441\u0440\u0435\u0434\u0441\u0442\u0432'); return; }
   try {
-    const res = await fetch(`${API}/withdraw`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, amount: amtUsd }) });
+    const res = await fetch(`${API}/withdraw`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, amount: amt }) });
     const d = await res.json();
     if (d.ok) { showToast('\u2705 \u0417\u0430\u044f\u0432\u043a\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430'); document.getElementById('withdraw-amount').value = ''; document.getElementById('form-withdraw').classList.add('hidden'); await loadBalance(); }
     else showToast(d.error || '\u041e\u0448\u0438\u0431\u043a\u0430');
@@ -394,11 +388,10 @@ async function submitWithdraw() {
 }
 
 async function submitDeposit() {
-  const amtRub = parseFloat(document.getElementById('deposit-amount').value);
-  if (!amtRub || amtRub <= 0) { showToast('\u0412\u0432\u0435\u0434\u0438 \u0441\u0443\u043c\u043c\u0443'); return; }
-  const amtUsd = amtRub / fxRates.rub; // конвертируем рубли в USD
+  const amt = parseFloat(document.getElementById('deposit-amount').value);
+  if (!amt || amt <= 0) { showToast('\u0412\u0432\u0435\u0434\u0438 \u0441\u0443\u043c\u043c\u0443'); return; }
   try {
-    const res = await fetch(`${API}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, amount: amtUsd }) });
+    const res = await fetch(`${API}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, amount: amt }) });
     const d = await res.json();
     if (d.ok) { showToast('\u2705 \u0417\u0430\u044f\u0432\u043a\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430'); document.getElementById('deposit-amount').value = ''; document.getElementById('form-deposit').classList.add('hidden'); }
     else showToast(d.error || '\u041e\u0448\u0438\u0431\u043a\u0430');

@@ -16,6 +16,7 @@ let fxRates = { usd: 1, eur: 0.92, rub: 90 };
 let chart, candleSeries, ws;
 let cachedPositions = [];
 let priceCache = {};
+let lastCandle = null;
 
 const WS_SYMBOLS = { BTC:'btcusdt', ETH:'ethusdt', SOL:'solusdt', BNB:'bnbusdt', XRP:'xrpusdt' };
 const CUR_LABELS = { coins:'\u043c\u043e\u043d\u0435\u0442', usd:'USD', eur:'EUR', rub:'RUB' };
@@ -70,10 +71,19 @@ function connectWS() {
     document.getElementById('price-high').textContent = fmt(high);
     document.getElementById('price-low').textContent  = fmt(low);
 
-    if (candleSeries) {
+    if (candleSeries && lastCandle) {
       const t = Math.floor(Date.now() / 1000);
       const barTime = t - (t % (currentTf * 60));
-      candleSeries.update({ time: barTime, open: price, high: price, low: price, close: price });
+      if (barTime > lastCandle.time) {
+        // новая свеча началась
+        lastCandle = { time: barTime, open: price, high: price, low: price, close: price };
+      } else {
+        // обновляем текущую свечу
+        lastCandle.close = price;
+        lastCandle.high = Math.max(lastCandle.high, price);
+        lastCandle.low  = Math.min(lastCandle.low, price);
+      }
+      candleSeries.update(lastCandle);
     }
 
     updateTradeInfo();
@@ -126,6 +136,7 @@ async function loadCandles() {
     }));
     candleSeries.setData(candles);
     chart.timeScale().fitContent();
+    lastCandle = candles[candles.length - 1] || null;
   } catch(e) { console.log('candles err', e); }
   showLoader(false);
 }

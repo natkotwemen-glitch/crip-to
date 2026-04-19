@@ -11,7 +11,6 @@ router = Router()
 async def set_balance_cmd(message: Message):
     if message.from_user.id != ADMIN_ID:
         return
-    # /setbalance 123456789 1000
     parts = message.text.split()
     if len(parts) != 3:
         await message.answer("Использование: /setbalance <user_id> <сумма>")
@@ -26,7 +25,8 @@ async def set_balance_cmd(message: Message):
     await message.answer(f"✅ Баланс юзера {uid} установлен: {amount} USD")
 
 @router.message(Command("admin"))
-async def admin_panel(message: Message):    if message.from_user.id != ADMIN_ID:
+async def admin_panel(message: Message):
+    if message.from_user.id != ADMIN_ID:
         return
     await message.answer(
         "🔧 Админ панель",
@@ -51,7 +51,7 @@ async def admin_deposits(call: CallbackQuery):
     buttons = []
     for dep in deps:
         dep_id, user_id, amount, created_at = dep
-        text += f"#{dep_id} | Юзер: {user_id} | Сумма: {amount} | {created_at}\n"
+        text += f"#{dep_id} | Юзер: {user_id} | Сумма: {amount} USD | {created_at}\n"
         buttons.append([
             InlineKeyboardButton(text=f"✅ #{dep_id}", callback_data=f"dep_approve_{dep_id}"),
             InlineKeyboardButton(text=f"❌ #{dep_id}", callback_data=f"dep_reject_{dep_id}")
@@ -73,7 +73,7 @@ async def admin_withdrawals(call: CallbackQuery):
     buttons = []
     for wd in wds:
         w_id, user_id, amount, created_at = wd
-        text += f"#{w_id} | Юзер: {user_id} | Сумма: {amount} | {created_at}\n"
+        text += f"#{w_id} | Юзер: {user_id} | Сумма: {amount} USD | {created_at}\n"
         buttons.append([
             InlineKeyboardButton(text=f"✅ #{w_id}", callback_data=f"wd_approve_{w_id}"),
             InlineKeyboardButton(text=f"❌ #{w_id}", callback_data=f"wd_reject_{w_id}")
@@ -89,7 +89,7 @@ async def dep_approve(call: CallbackQuery):
     row = db.resolve_deposit(dep_id, "approved")
     if row:
         from main import bot
-        await bot.send_message(row[0], f"✅ Пополнение #{dep_id} на {row[1]} монет подтверждено!")
+        await bot.send_message(row[0], f"✅ Пополнение #{dep_id} на {row[1]} USD подтверждено!")
     await call.message.edit_text(f"✅ Заявка #{dep_id} принята.")
 
 @router.callback_query(F.data.startswith("dep_reject_"))
@@ -111,7 +111,7 @@ async def wd_approve(call: CallbackQuery):
     row = db.resolve_withdrawal(w_id, "approved")
     if row:
         from main import bot
-        await bot.send_message(row[0], f"✅ Вывод #{w_id} на {row[1]} монет выполнен!")
+        await bot.send_message(row[0], f"✅ Вывод #{w_id} на {row[1]} USD выполнен!")
     await call.message.edit_text(f"✅ Вывод #{w_id} выполнен.")
 
 @router.callback_query(F.data.startswith("wd_reject_"))
@@ -164,7 +164,6 @@ async def admin_positions(call: CallbackQuery):
         )
         buttons.append([InlineKeyboardButton(text=f"💥 Ликвидировать #{pos_id}", callback_data=f"admin_liq_{pos_id}")])
     buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")])
-    # разбиваем на части если текст слишком длинный
     if len(text) > 4000:
         text = text[:4000] + "\n..."
     await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -180,10 +179,9 @@ async def admin_liquidate(call: CallbackQuery):
         await call.answer("Позиция не найдена.")
         return
     _, user_id, symbol, direction, leverage, amount, entry_price, status, created_at = pos
-    from utils.prices import get_price, calc_pnl
+    from utils.prices import get_price
     current_price = await get_price(symbol)
-    pnl = calc_pnl(direction, leverage, amount, entry_price, current_price)
-    db.close_position(pos_id, -amount)  # ликвидация = полный убыток
+    db.close_position(pos_id, -amount)
     from main import bot
     await bot.send_message(
         user_id,
@@ -191,8 +189,7 @@ async def admin_liquidate(call: CallbackQuery):
         f"📌 #{pos_id} {symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
         f"💵 Цена входа: ${entry_price:,.2f}\n"
         f"📉 Цена ликвидации: ${current_price:,.2f}\n"
-        f"💸 Потеря: -{amount:.2f} USD\n\n"
-        f"Ваш депозит по этой позиции был полностью списан."
+        f"💸 Потеря: -{amount:.2f} USD"
     )
     await call.answer(f"Позиция #{pos_id} ликвидирована.")
     await admin_positions(call)

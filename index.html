@@ -2,99 +2,117 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>OG Exchange</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
+
   <!-- Header -->
   <header class="header">
-    <div class="header-left">
-      <span class="logo">OG<span class="logo-accent">EX</span></span>
+    <div class="logo">OG<span>EX</span></div>
+    <div class="pair-btn" id="pair-selector">
+      <span id="current-pair">BTC/USD</span>
+      <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#848e9c" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
     </div>
-    <div class="header-center" id="pair-selector">
-      <span class="pair-name" id="current-pair">BTC/USD</span>
-      <span class="pair-arrow">▾</span>
-    </div>
-    <div class="header-right">
-      <span class="balance-label">Баланс:</span>
-      <span class="balance-value" id="header-balance">0</span>
+    <div class="header-bal">
+      <div class="header-bal-label">Баланс</div>
+      <div class="header-bal-val" id="header-balance"><span class="bal-num">0.00</span> <span class="bal-cur">монет</span></div>
     </div>
   </header>
 
   <!-- Pair dropdown -->
-  <div class="pair-dropdown hidden" id="pair-dropdown">
-    <div class="pair-item" data-symbol="BTC">₿ BTC/USD</div>
-    <div class="pair-item" data-symbol="ETH">Ξ ETH/USD</div>
-    <div class="pair-item" data-symbol="SOL">◎ SOL/USD</div>
-    <div class="pair-item" data-symbol="BNB">⬡ BNB/USD</div>
-    <div class="pair-item" data-symbol="XRP">✕ XRP/USD</div>
+  <div class="dropdown hidden" id="pair-dropdown">
+    <div class="dropdown-item" data-symbol="BTC"><span class="coin-icon btc">₿</span>BTC/USD</div>
+    <div class="dropdown-item" data-symbol="ETH"><span class="coin-icon eth">Ξ</span>ETH/USD</div>
+    <div class="dropdown-item" data-symbol="SOL"><span class="coin-icon sol">◎</span>SOL/USD</div>
+    <div class="dropdown-item" data-symbol="BNB"><span class="coin-icon bnb">⬡</span>BNB/USD</div>
+    <div class="dropdown-item" data-symbol="XRP"><span class="coin-icon xrp">✕</span>XRP/USD</div>
   </div>
 
   <!-- Price bar -->
   <div class="price-bar">
-    <div class="price-main" id="current-price">$0.00</div>
-    <div class="price-change" id="price-change">+0.00%</div>
-    <div class="price-stats">
-      <span>24h H: <b id="price-high">0</b></span>
-      <span>24h L: <b id="price-low">0</b></span>
+    <div class="price-left">
+      <div class="price-main" id="current-price">$0.00</div>
+      <div class="price-badge" id="price-change">+0.00%</div>
+    </div>
+    <div class="price-right">
+      <div class="price-stat"><span>24h H</span><b id="price-high">—</b></div>
+      <div class="price-stat"><span>24h L</span><b id="price-low">—</b></div>
     </div>
   </div>
 
+  <!-- Timeframes -->
+  <div class="tf-bar">
+    <button class="tf-btn" data-tf="1">1м</button>
+    <button class="tf-btn" data-tf="5">5м</button>
+    <button class="tf-btn active" data-tf="15">15м</button>
+    <button class="tf-btn" data-tf="60">1ч</button>
+    <button class="tf-btn" data-tf="240">4ч</button>
+    <button class="tf-btn" data-tf="1440">1д</button>
+    <button class="tf-btn" data-tf="10080">1н</button>
+    <button class="tf-btn" data-tf="43200">1мес</button>
+  </div>
+
   <!-- Chart -->
-  <div id="chart-container"></div>
+  <div id="chart-wrap">
+    <div id="chart-container"></div>
+    <div class="chart-loader" id="chart-loader">
+      <div class="spinner"></div>
+    </div>
+  </div>
 
   <!-- Tabs -->
   <div class="tabs">
     <button class="tab active" data-tab="trade">Торговля</button>
-    <button class="tab" data-tab="positions">Позиции</button>
+    <button class="tab" data-tab="positions">Позиции <span class="pos-count hidden" id="pos-count">0</span></button>
     <button class="tab" data-tab="wallet">Кошелёк</button>
   </div>
 
-  <!-- Trade panel -->
+  <!-- TRADE TAB -->
   <div class="tab-content active" id="tab-trade">
-    <div class="direction-toggle">
-      <button class="dir-btn long active" id="btn-long" onclick="setDirection('long')">LONG</button>
-      <button class="dir-btn short" id="btn-short" onclick="setDirection('short')">SHORT</button>
+    <div class="dir-toggle">
+      <button class="dir-btn long active" id="btn-long" onclick="setDirection('long')">
+        <span class="dir-arrow">↑</span> LONG
+      </button>
+      <button class="dir-btn short" id="btn-short" onclick="setDirection('short')">
+        <span class="dir-arrow">↓</span> SHORT
+      </button>
     </div>
 
-    <div class="form-row">
-      <label>Плечо</label>
-      <div class="leverage-row">
-        <input type="range" id="leverage-slider" min="1" max="100" value="10" oninput="updateLeverage(this.value)">
-        <span class="leverage-val" id="leverage-display">x10</span>
-      </div>
-      <div class="leverage-presets">
-        <button onclick="setLeverage(1)">x1</button>
-        <button onclick="setLeverage(5)">x5</button>
-        <button onclick="setLeverage(10)">x10</button>
-        <button onclick="setLeverage(25)">x25</button>
-        <button onclick="setLeverage(50)">x50</button>
-        <button onclick="setLeverage(100)">x100</button>
-      </div>
+    <div class="section-label">Плечо</div>
+    <div class="leverage-wrap">
+      <input type="range" id="lev-slider" min="1" max="100" value="10" oninput="updateLeverage(this.value)">
+      <div class="lev-val" id="lev-display">x10</div>
+    </div>
+    <div class="preset-row">
+      <button class="preset" onclick="setLeverage(1)">x1</button>
+      <button class="preset" onclick="setLeverage(5)">x5</button>
+      <button class="preset" onclick="setLeverage(10)">x10</button>
+      <button class="preset" onclick="setLeverage(25)">x25</button>
+      <button class="preset" onclick="setLeverage(50)">x50</button>
+      <button class="preset" onclick="setLeverage(100)">x100</button>
     </div>
 
-    <div class="form-row">
-      <label>Сумма (монет)</label>
-      <div class="input-wrap">
-        <input type="number" id="trade-amount" placeholder="0.00" min="0">
-        <span class="input-suffix">монет</span>
-      </div>
-      <div class="percent-row">
-        <button onclick="setPercent(25)">25%</button>
-        <button onclick="setPercent(50)">50%</button>
-        <button onclick="setPercent(75)">75%</button>
-        <button onclick="setPercent(100)">100%</button>
-      </div>
+    <div class="section-label">Сумма</div>
+    <div class="amount-wrap">
+      <input type="number" id="trade-amount" placeholder="0.00" oninput="updateTradeInfo()">
+      <span class="amount-cur">монет</span>
+    </div>
+    <div class="preset-row">
+      <button class="preset" onclick="setPercent(25)">25%</button>
+      <button class="preset" onclick="setPercent(50)">50%</button>
+      <button class="preset" onclick="setPercent(75)">75%</button>
+      <button class="preset" onclick="setPercent(100)">MAX</button>
     </div>
 
-    <div class="trade-info">
-      <div class="info-row"><span>Цена входа</span><span id="entry-price-display">—</span></div>
-      <div class="info-row"><span>Объём позиции</span><span id="position-size">—</span></div>
-      <div class="info-row"><span>Ликвидация</span><span id="liq-price" class="red">—</span></div>
+    <div class="trade-stats">
+      <div class="stat-row"><span>Цена входа</span><span id="entry-price-display">—</span></div>
+      <div class="stat-row"><span>Объём позиции</span><span id="position-size">—</span></div>
+      <div class="stat-row"><span>Цена ликвидации</span><span class="red" id="liq-price">—</span></div>
     </div>
 
     <button class="open-btn long" id="open-btn" onclick="openPosition()">
@@ -102,48 +120,57 @@
     </button>
   </div>
 
-  <!-- Positions panel -->
+  <!-- POSITIONS TAB -->
   <div class="tab-content" id="tab-positions">
-    <div id="positions-list"><div class="empty-state">Нет открытых позиций</div></div>
+    <div id="positions-list"><div class="empty-msg">Нет открытых позиций</div></div>
   </div>
 
-  <!-- Wallet panel -->
+  <!-- WALLET TAB -->
   <div class="tab-content" id="tab-wallet">
-    <div class="wallet-balance">
-      <div class="wallet-label">Доступный баланс</div>
-      <div class="wallet-amount" id="wallet-balance-display">0 монет</div>
+    <div class="wallet-card">
+      <div class="wallet-card-label">Доступный баланс</div>
+      <div class="wallet-card-amount" id="wallet-amount">
+        <span class="wallet-num">0.00</span>
+        <span class="wallet-cur">монет</span>
+      </div>
+      <div class="wallet-dots" id="wallet-dots">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
     </div>
-    <div class="wallet-actions">
-      <button class="wallet-btn deposit" onclick="showDeposit()">📥 Пополнить</button>
-      <button class="wallet-btn withdraw" onclick="showWithdraw()">📤 Вывести</button>
+    <div class="wallet-btns">
+      <button class="w-btn green" onclick="toggleForm('deposit')">📥 Пополнить</button>
+      <button class="w-btn gray" onclick="toggleForm('withdraw')">📤 Вывести</button>
     </div>
-    <div class="wallet-form hidden" id="deposit-form">
-      <input type="number" id="deposit-amount" placeholder="Сумма пополнения">
+    <div class="wallet-form hidden" id="form-deposit">
+      <div class="form-title">Заявка на пополнение</div>
+      <input type="number" id="deposit-amount" placeholder="Введи сумму">
       <button class="confirm-btn" onclick="submitDeposit()">Отправить заявку</button>
     </div>
-    <div class="wallet-form hidden" id="withdraw-form">
-      <input type="number" id="withdraw-amount" placeholder="Сумма вывода">
+    <div class="wallet-form hidden" id="form-withdraw">
+      <div class="form-title">Заявка на вывод</div>
+      <input type="number" id="withdraw-amount" placeholder="Введи сумму">
       <button class="confirm-btn" onclick="submitWithdraw()">Отправить заявку</button>
     </div>
   </div>
 
   <!-- Bottom nav -->
   <nav class="bottom-nav">
-    <button class="nav-btn active" onclick="switchTab('trade', this)">
-      <span class="nav-icon">📊</span><span>Торговля</span>
+    <button class="nav-btn active" onclick="switchNav('trade', this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span>Торговля</span>
     </button>
-    <button class="nav-btn" onclick="switchTab('positions', this)">
-      <span class="nav-icon">📋</span><span>Позиции</span>
+    <button class="nav-btn" onclick="switchNav('positions', this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+      <span>Позиции</span>
     </button>
-    <button class="nav-btn" onclick="switchTab('wallet', this)">
-      <span class="nav-icon">💰</span><span>Кошелёк</span>
+    <button class="nav-btn" onclick="switchNav('wallet', this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+      <span>Кошелёк</span>
     </button>
   </nav>
 </div>
 
-<!-- Toast -->
 <div class="toast hidden" id="toast"></div>
-
 <script src="app.js"></script>
 </body>
 </html>

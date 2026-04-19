@@ -13,8 +13,8 @@ class DepositState(StatesGroup):
 class WithdrawState(StatesGroup):
     waiting_amount = State()
 
-def fmt_rub(usd):
-    return f"₽{round(usd * 90):,}".replace(',', ' ')
+def fmt_rub(amount):
+    return f"₽{round(amount):,}".replace(',', ' ')
 
 def main_menu():
     return ReplyKeyboardMarkup(

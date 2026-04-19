@@ -4,8 +4,8 @@ from utils.prices import calc_pnl, get_price
 
 routes = web.RouteTableDef()
 
-def fmt_rub(usd):
-    return f"₽{round(usd * 90):,}".replace(',', ' ')
+def fmt_rub(amount):
+    return f"₽{round(amount):,}".replace(',', ' ')
 
 @routes.get('/balance')
 async def balance(req):

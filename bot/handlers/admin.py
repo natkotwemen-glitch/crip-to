@@ -13,8 +13,8 @@ def resolve_user(arg):
         return user[0] if user else None
     return int(arg)
 
-def fmt_rub(usd):
-    return f"₽{round(usd * 90):,}".replace(',', ' ')
+def fmt_rub(amount):
+    return f"₽{round(amount):,}".replace(',', ' ')
 
 @router.message(Command("setbalanceall"))
 async def set_balance_all_cmd(message: Message):
@@ -26,7 +26,7 @@ async def set_balance_all_cmd(message: Message):
         return
     try:
         amount_rub = float(parts[1])
-        amount_usd = amount_rub / 90
+        amount_usd = amount_rub
     except ValueError:
         await message.answer("Неверный формат суммы.")
         return
@@ -97,7 +97,7 @@ async def set_balance_cmd(message: Message):
         await message.answer("Юзер не найден.")
         return
     try:
-        amount_usd = float(parts[2]) / 90
+        amount_usd = float(parts[2])
     except ValueError:
         await message.answer("Неверный формат суммы.")
         return

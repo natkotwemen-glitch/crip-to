@@ -33,7 +33,7 @@ async def monitor_positions():
                                 f"📌 #{pos_id} {symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
                                 f"Цена входа: {entry_price:,.2f}\n"
                                 f"Цена ликвидации: {current_price:,.2f}\n"
-                                f"💸 Потеря: ₽{round(amount * 90):,}".replace(',', ' ')
+                                f"💸 Потеря: ₽{round(amount):,}".replace(',', ' ')
                             )
                         except Exception:
                             pass

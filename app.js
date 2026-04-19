@@ -17,6 +17,7 @@ let chart, candleSeries, ws;
 let cachedPositions = [];
 let priceCache = {};
 let lastCandle = null;
+let openingPosition = false;
 
 const WS_SYMBOLS = { BTC:'btcusdt', ETH:'ethusdt', SOL:'solusdt', BNB:'bnbusdt', XRP:'xrpusdt' };
 const CUR_LABELS = { rub: 'RUB' };

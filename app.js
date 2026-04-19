@@ -106,20 +106,26 @@ function initChart() {
   window.addEventListener('resize', () => chart.applyOptions({ width: el.clientWidth }));
 }
 
+const TF_BINANCE = { 1:'1m', 5:'5m', 15:'15m', 60:'1h', 240:'4h', 1440:'1d', 10080:'1w', 43200:'1M' };
+
 async function loadCandles() {
   showLoader(true);
   try {
-    const id = COIN_IDS[currentSymbol];
-    const days = TF_DAYS[currentTf] || '1';
-    const res = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=${days}`);
+    const sym = WS_SYMBOLS[currentSymbol].toUpperCase();
+    const interval = TF_BINANCE[currentTf] || '15m';
+    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=200`);
     const data = await res.json();
     if (!Array.isArray(data)) return;
-    const candles = data
-      .map(d => ({ time: Math.floor(d[0]/1000), open:d[1], high:d[2], low:d[3], close:d[4] }))
-      .filter((c,i,a) => i===0 || c.time > a[i-1].time);
+    const candles = data.map(d => ({
+      time: Math.floor(d[0]/1000),
+      open: parseFloat(d[1]),
+      high: parseFloat(d[2]),
+      low: parseFloat(d[3]),
+      close: parseFloat(d[4])
+    }));
     candleSeries.setData(candles);
     chart.timeScale().fitContent();
-  } catch(e) {}
+  } catch(e) { console.log('candles err', e); }
   showLoader(false);
 }
 
@@ -128,19 +134,22 @@ function showLoader(v) { document.getElementById('chart-loader').classList.toggl
 // ── Price (initial) ───────────────────────────────────────────────────────────
 async function loadPrice() {
   try {
-    const id = COIN_IDS[currentSymbol];
-    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&include_24hr_high=true&include_24hr_low=true`);
-    const d = await res.json();
-    const info = d[id];
-    currentPrice = info.usd;
-    const change = info.usd_24h_change || 0;
+    const sym = WS_SYMBOLS[currentSymbol].toUpperCase();
+    const [tickerRes, statsRes] = await Promise.all([
+      fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`),
+      fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${sym}`)
+    ]);
+    const ticker = await tickerRes.json();
+    const stats = await statsRes.json();
+    currentPrice = parseFloat(ticker.price);
+    const change = parseFloat(stats.priceChangePercent);
     document.getElementById('current-price').textContent = `$${fmt(currentPrice)}`;
     document.getElementById('current-price').style.color = change >= 0 ? '#0ecb81' : '#f6465d';
     const badge = document.getElementById('price-change');
     badge.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
     badge.className = `price-badge${change >= 0 ? '' : ' red'}`;
-    document.getElementById('price-high').textContent = `$${fmt(info.usd_24h_high||0)}`;
-    document.getElementById('price-low').textContent = `$${fmt(info.usd_24h_low||0)}`;
+    document.getElementById('price-high').textContent = `$${fmt(parseFloat(stats.highPrice))}`;
+    document.getElementById('price-low').textContent = `$${fmt(parseFloat(stats.lowPrice))}`;
     updateTradeInfo();
   } catch(e) {}
 }

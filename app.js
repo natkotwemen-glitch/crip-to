@@ -440,8 +440,12 @@ function switchNav(name, btn) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${name}`));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  const isWallet = name === 'wallet';
+  document.getElementById('chart-wrap').style.display = isWallet ? 'none' : '';
+  document.querySelector('.price-bar').style.display  = isWallet ? 'none' : '';
+  document.querySelector('.tf-bar').style.display     = isWallet ? 'none' : '';
   if (name === 'positions') loadPositions();
-  if (name === 'wallet') { loadBalance(); applyAccent(accentColor); }
+  if (isWallet) { loadBalance(); applyAccent(accentColor); }
 }
 
 // Utils

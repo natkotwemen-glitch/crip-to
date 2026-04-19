@@ -2,7 +2,7 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.setHeaderColor('#161a1e');
 
-const API = 'https://YOUR_SERVER_URL'; // заменить на свой сервер
+const API = 'http://localhost:8080';
 const userId = tg.initDataUnsafe?.user?.id;
 
 let currentSymbol = 'BTC';

@@ -3,7 +3,6 @@ if (tg) { tg.expand(); tg.setHeaderColor?.('#161a1e'); }
 
 const API = 'https://crip-to-production.up.railway.app';
 const userId = tg?.initDataUnsafe?.user?.id || 0;
-
 let currentSymbol = 'BTC';
 let currentPrice = 0;
 let currentDirection = 'long';
@@ -27,15 +26,14 @@ const TF_BINANCE = { 1:'1m', 5:'5m', 15:'15m', 60:'1h', 240:'4h', 1440:'1d', 100
 // Boot
 window.addEventListener('load', async () => {
   applyAccent(accentColor);
-  applyCurrencyUI();
   initChart();
-  await Promise.all([loadBalance(), loadPrice()]);
+  await Promise.all([loadBalance(), loadPrice(), fetchFxRates()]);
   loadCandles();
-  await loadPositions(); // ждём пока цена загружена
+  await loadPositions();
   connectWS();
-  fetchFxRates();
-  setInterval(async () => { await loadBalance(); fetchFxRates(); updateBalanceUI(); }, 10000);
-  setInterval(() => loadPositions(), 5000);
+  setInterval(loadBalance, 15000);
+  setInterval(loadPositions, 5000);
+  setInterval(fetchFxRates, 60000);
 });
 
 // WebSocket realtime
@@ -332,12 +330,16 @@ function updateTradeInfo() {
   document.getElementById('liq-price').textContent     = amtRub > 0 ? fmt(liq) : '\u2014';
 }
 
+let openingPosition = false;
 async function openPosition() {
+  if (openingPosition) return;
   const amtRub = parseFloat(document.getElementById('trade-amount').value);
   if (!amtRub || amtRub <= 0) { showToast('\u0412\u0432\u0435\u0434\u0438 \u0441\u0443\u043c\u043c\u0443'); return; }
-  const amt = amtRub / fxRates.rub; // конвертируем рубли в USD
+  const amt = amtRub / fxRates.rub;
   if (amt > balance)    { showToast('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0441\u0440\u0435\u0434\u0441\u0442\u0432'); return; }
   if (!currentPrice)    { showToast('\u0426\u0435\u043d\u0430 \u043d\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u0430'); return; }
+  openingPosition = true;
+  document.getElementById('open-btn').disabled = true;
   try {
     const res = await fetch(`${API}/open_position`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -351,6 +353,7 @@ async function openPosition() {
       loadPositions();
     } else showToast(d.error || '\u041e\u0448\u0438\u0431\u043a\u0430');
   } catch(e) { showToast('\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430'); }
+  finally { openingPosition = false; document.getElementById('open-btn').disabled = false; }
 }
 
 async function closePosition(id) {

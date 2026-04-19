@@ -30,6 +30,18 @@ async def open_position(req):
     bal = db.get_balance(user_id)
     if data['amount'] > bal:
         return web.json_response({'ok': False, 'error': 'Недостаточно средств'})
+    # защита от дублирования — проверяем нет ли уже такой позиции открытой за последние 3 сек
+    existing = db.get_open_positions(user_id)
+    for p in existing:
+        if p[2] == data['symbol'] and p[3] == data['direction'] and p[4] == data['leverage']:
+            import time
+            from datetime import datetime
+            try:
+                created = datetime.fromisoformat(p[8])
+                if (datetime.utcnow() - created).total_seconds() < 3:
+                    return web.json_response({'ok': False, 'error': 'Дублирующий запрос'})
+            except Exception:
+                pass
     pos_id = db.open_position(
         user_id, data['symbol'], data['direction'],
         data['leverage'], data['amount'], data['entry_price']

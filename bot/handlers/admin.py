@@ -24,6 +24,26 @@ async def set_balance_cmd(message: Message):
     db.set_balance(uid, amount)
     await message.answer(f"✅ Баланс юзера {uid} установлен: {amount} USD")
 
+@router.message(Command("resetbalance"))
+async def reset_balance_cmd(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) != 2:
+        await message.answer("Использование: /resetbalance <user_id>")
+        return
+    try:
+        uid = int(parts[1])
+    except ValueError:
+        await message.answer("Неверный формат.")
+        return
+    db.set_balance(uid, 0)
+    # закрываем все открытые позиции
+    positions = db.get_open_positions(uid)
+    for pos in positions:
+        db.close_position(pos[0], -pos[5])
+    await message.answer(f"✅ Баланс юзера {uid} обнулён, все позиции закрыты.")
+
 @router.message(Command("admin"))
 async def admin_panel(message: Message):
     if message.from_user.id != ADMIN_ID:

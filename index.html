@@ -88,7 +88,7 @@
     <div class="section-label">Сумма</div>
     <div class="amount-wrap">
       <input type="number" id="trade-amount" placeholder="0.00" oninput="updateTradeInfo()">
-      <span class="amount-cur">монет</span>
+      <span class="amount-cur">USD</span>
     </div>
     <div class="preset-row">
       <button class="preset" onclick="setPercent(25)">25%</button>
@@ -153,8 +153,7 @@
       <div class="settings-row">
         <span>Валюта баланса</span>
         <div class="cur-picks">
-          <button class="cur-pick active" onclick="setCurrency('coins')">монеты</button>
-          <button class="cur-pick" onclick="setCurrency('usd')">USD</button>
+          <button class="cur-pick active" onclick="setCurrency('usd')">USD</button>
           <button class="cur-pick" onclick="setCurrency('eur')">EUR</button>
           <button class="cur-pick" onclick="setCurrency('rub')">RUB</button>
         </div>

@@ -10,7 +10,7 @@ let currentDirection = 'long';
 let currentLeverage = 10;
 let currentTf = 15;
 let balance = 0;
-let currency = localStorage.getItem('currency') || 'coins';
+let currency = localStorage.getItem('currency') || 'usd';
 let accentColor = localStorage.getItem('accent') || '#f0b90b';
 let fxRates = { usd: 1, eur: 0.92, rub: 90 };
 let chart, candleSeries, ws;
@@ -19,8 +19,8 @@ let priceCache = {};
 let lastCandle = null;
 
 const WS_SYMBOLS = { BTC:'btcusdt', ETH:'ethusdt', SOL:'solusdt', BNB:'bnbusdt', XRP:'xrpusdt' };
-const CUR_LABELS = { coins:'\u043c\u043e\u043d\u0435\u0442', usd:'USD', eur:'EUR', rub:'RUB' };
-const CUR_SIGNS  = { coins:'', usd:'$', eur:'\u20ac', rub:'\u20bd' };
+const CUR_LABELS = { usd:'USD', eur:'EUR', rub:'RUB' };
+const CUR_SIGNS  = { usd:'$', eur:'\u20ac', rub:'\u20bd' };
 const TF_BINANCE = { 1:'1m', 5:'5m', 15:'15m', 60:'1h', 240:'4h', 1440:'1d', 10080:'1w', 43200:'1M' };
 
 // Boot
@@ -188,7 +188,6 @@ function updateBalanceUI() {
 }
 
 function convertBalance(coins) {
-  if (currency === 'coins') return coins.toFixed(2);
   if (currency === 'usd')   return coins.toFixed(2);
   if (currency === 'eur')   return (coins * fxRates.eur).toFixed(2);
   if (currency === 'rub')   return Math.round(coins * fxRates.rub).toLocaleString('ru');
@@ -196,7 +195,7 @@ function convertBalance(coins) {
 }
 
 function cycleCurrency() {
-  const order = ['coins', 'usd', 'eur', 'rub'];
+  const order = ['usd', 'eur', 'rub'];
   currency = order[(order.indexOf(currency) + 1) % order.length];
   localStorage.setItem('currency', currency);
   applyCurrencyUI();

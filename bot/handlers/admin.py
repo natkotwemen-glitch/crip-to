@@ -7,18 +7,26 @@ from config import ADMIN_ID
 
 router = Router()
 
-def admin_only(func):
-    async def wrapper(event, *args, **kwargs):
-        user_id = event.from_user.id if hasattr(event, 'from_user') else None
-        if user_id != ADMIN_ID:
-            return
-        return await func(event, *args, **kwargs)
-    wrapper.__name__ = func.__name__
-    return wrapper
+@router.message(Command("setbalance"))
+async def set_balance_cmd(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    # /setbalance 123456789 1000
+    parts = message.text.split()
+    if len(parts) != 3:
+        await message.answer("Использование: /setbalance <user_id> <сумма>")
+        return
+    try:
+        uid = int(parts[1])
+        amount = float(parts[2])
+    except ValueError:
+        await message.answer("Неверный формат.")
+        return
+    db.set_balance(uid, amount)
+    await message.answer(f"✅ Баланс юзера {uid} установлен: {amount} USD")
 
 @router.message(Command("admin"))
-async def admin_panel(message: Message):
-    if message.from_user.id != ADMIN_ID:
+async def admin_panel(message: Message):    if message.from_user.id != ADMIN_ID:
         return
     await message.answer(
         "🔧 Админ панель",

@@ -30,7 +30,7 @@ window.addEventListener('load', async () => {
   initChart();
   await Promise.all([loadBalance(), loadPrice()]);
   loadCandles();
-  loadPositions();
+  await loadPositions(); // ждём пока цена загружена
   connectWS();
   fetchFxRates();
   setInterval(async () => { await loadBalance(); fetchFxRates(); updateBalanceUI(); }, 10000);
@@ -235,6 +235,17 @@ async function loadPositions() {
     const res = await fetch(`${API}/positions?user_id=${userId}`);
     const d = await res.json();
     cachedPositions = d.positions || [];
+    // предзагружаем цены всех символов в позициях
+    const symbols = [...new Set(cachedPositions.map(p => p.symbol))];
+    await Promise.all(symbols.map(async sym => {
+      if (!priceCache[sym]) {
+        try {
+          const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${WS_SYMBOLS[sym].toUpperCase()}`);
+          const j = await r.json();
+          priceCache[sym] = parseFloat(j.price);
+        } catch(e) {}
+      }
+    }));
     renderPositions(cachedPositions);
   } catch(e) { renderPositions(cachedPositions); }
 }
@@ -245,6 +256,9 @@ function renderPositions(list) {
   badge.classList.toggle('hidden', list.length === 0);
   const el = document.getElementById('positions-list');
   if (!list.length) { el.innerHTML = '<div class="empty-msg">\u041d\u0435\u0442 \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u0445 \u043f\u043e\u0437\u0438\u0446\u0438\u0439</div>'; return; }
+
+  // не рендерим если цены ещё не загружены
+  if (!currentPrice) return;
 
   // если карточки уже есть — только обновляем PnL без перерисовки
   const existing = el.querySelectorAll('.pos-card');

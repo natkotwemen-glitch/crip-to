@@ -76,6 +76,13 @@ def update_balance(user_id, amount):
     conn.commit()
     conn.close()
 
+def set_balance(user_id, amount):
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("UPDATE users SET balance = ? WHERE user_id = ?", (amount, user_id))
+    conn.commit()
+    conn.close()
+
 def create_deposit(user_id, amount):
     conn = sqlite3.connect(DB)
     c = conn.cursor()

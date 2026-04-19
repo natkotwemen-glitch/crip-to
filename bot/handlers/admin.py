@@ -7,22 +7,52 @@ from config import ADMIN_ID
 
 router = Router()
 
+def resolve_user(arg):
+    if arg.startswith('@') or not arg.lstrip('-').isdigit():
+        user = db.get_user_by_username(arg)
+        return user[0] if user else None
+    return int(arg)
+
+@router.message(Command("checkbalance"))
+async def check_balance_cmd(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) != 2:
+        await message.answer("Использование: /checkbalance @username")
+        return
+    uid = resolve_user(parts[1])
+    if not uid:
+        await message.answer("Юзер не найден.")
+        return
+    bal = db.get_balance(uid)
+    positions = db.get_open_positions(uid)
+    text = f"👤 {parts[1]}\n💰 Баланс: {bal:.2f} USD\n📊 Открытых позиций: {len(positions)}"
+    if positions:
+        text += "\n\n"
+        for pos in positions:
+            text += f"#{pos[0]} {pos[2]} {'LONG' if pos[3]=='long' else 'SHORT'} x{pos[4]} | {pos[5]:.2f} USD\n"
+    await message.answer(text)
+
 @router.message(Command("setbalance"))
 async def set_balance_cmd(message: Message):
     if message.from_user.id != ADMIN_ID:
         return
     parts = message.text.split()
     if len(parts) != 3:
-        await message.answer("Использование: /setbalance <user_id> <сумма>")
+        await message.answer("Использование: /setbalance @username <сумма>")
+        return
+    uid = resolve_user(parts[1])
+    if not uid:
+        await message.answer("Юзер не найден.")
         return
     try:
-        uid = int(parts[1])
         amount = float(parts[2])
     except ValueError:
-        await message.answer("Неверный формат.")
+        await message.answer("Неверный формат суммы.")
         return
     db.set_balance(uid, amount)
-    await message.answer(f"✅ Баланс юзера {uid} установлен: {amount} USD")
+    await message.answer(f"✅ Баланс {parts[1]} установлен: {amount} USD")
 
 @router.message(Command("resetbalance"))
 async def reset_balance_cmd(message: Message):
@@ -30,19 +60,17 @@ async def reset_balance_cmd(message: Message):
         return
     parts = message.text.split()
     if len(parts) != 2:
-        await message.answer("Использование: /resetbalance <user_id>")
+        await message.answer("Использование: /resetbalance @username")
         return
-    try:
-        uid = int(parts[1])
-    except ValueError:
-        await message.answer("Неверный формат.")
+    uid = resolve_user(parts[1])
+    if not uid:
+        await message.answer("Юзер не найден.")
         return
     db.set_balance(uid, 0)
-    # закрываем все открытые позиции
     positions = db.get_open_positions(uid)
     for pos in positions:
         db.close_position(pos[0], -pos[5])
-    await message.answer(f"✅ Баланс юзера {uid} обнулён, все позиции закрыты.")
+    await message.answer(f"✅ Баланс {parts[1]} обнулён, все позиции закрыты.")
 
 @router.message(Command("admin"))
 async def admin_panel(message: Message):
@@ -71,7 +99,7 @@ async def admin_deposits(call: CallbackQuery):
     buttons = []
     for dep in deps:
         dep_id, user_id, amount, created_at = dep
-        text += f"#{dep_id} | Юзер: {user_id} | Сумма: {amount} USD | {created_at}\n"
+        text += f"#{dep_id} | Юзер: {user_id} | Сумма: {amount:.2f} USD | {created_at}\n"
         buttons.append([
             InlineKeyboardButton(text=f"✅ #{dep_id}", callback_data=f"dep_approve_{dep_id}"),
             InlineKeyboardButton(text=f"❌ #{dep_id}", callback_data=f"dep_reject_{dep_id}")
@@ -93,7 +121,7 @@ async def admin_withdrawals(call: CallbackQuery):
     buttons = []
     for wd in wds:
         w_id, user_id, amount, created_at = wd
-        text += f"#{w_id} | Юзер: {user_id} | Сумма: {amount} USD | {created_at}\n"
+        text += f"#{w_id} | Юзер: {user_id} | Сумма: {amount:.2f} USD | {created_at}\n"
         buttons.append([
             InlineKeyboardButton(text=f"✅ #{w_id}", callback_data=f"wd_approve_{w_id}"),
             InlineKeyboardButton(text=f"❌ #{w_id}", callback_data=f"wd_reject_{w_id}")
@@ -109,7 +137,7 @@ async def dep_approve(call: CallbackQuery):
     row = db.resolve_deposit(dep_id, "approved")
     if row:
         from main import bot
-        await bot.send_message(row[0], f"✅ Пополнение #{dep_id} на {row[1]} USD подтверждено!")
+        await bot.send_message(row[0], f"✅ Пополнение #{dep_id} на {row[1]:.2f} USD подтверждено!")
     await call.message.edit_text(f"✅ Заявка #{dep_id} принята.")
 
 @router.callback_query(F.data.startswith("dep_reject_"))
@@ -131,7 +159,7 @@ async def wd_approve(call: CallbackQuery):
     row = db.resolve_withdrawal(w_id, "approved")
     if row:
         from main import bot
-        await bot.send_message(row[0], f"✅ Вывод #{w_id} на {row[1]} USD выполнен!")
+        await bot.send_message(row[0], f"✅ Вывод #{w_id} на {row[1]:.2f} USD выполнен!")
     await call.message.edit_text(f"✅ Вывод #{w_id} выполнен.")
 
 @router.callback_query(F.data.startswith("wd_reject_"))

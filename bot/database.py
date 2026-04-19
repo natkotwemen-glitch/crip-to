@@ -46,6 +46,15 @@ def init_db():
     conn.commit()
     conn.close()
 
+def get_user_by_username(username):
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    username = username.lstrip('@')
+    c.execute("SELECT * FROM users WHERE username = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+    return row
+
 def get_user(user_id):
     conn = sqlite3.connect(DB)
     c = conn.cursor()

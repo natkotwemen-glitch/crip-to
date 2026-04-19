@@ -192,3 +192,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 /* Header bal clickable */
 .header-bal{cursor:pointer;user-select:none;transition:opacity .15s}
 .header-bal:active{opacity:.7}
+
+/* скрыть график и курс на вкладке кошелька */
+body.wallet-active .price-bar,
+body.wallet-active .tf-bar,
+body.wallet-active #chart-wrap { display: none !important; }

@@ -141,7 +141,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 @keyframes pulse{0%,100%{opacity:.2;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
 
 .wallet-btns{display:flex;gap:10px;margin-bottom:14px}
-.w-btn{flex:1;padding:13px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
+.w-btn{flex:1;padding:13px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;color:#000}
 .w-btn.green{background:var(--green);color:#000}
 .w-btn.gray{background:var(--bg3);border:1px solid var(--border);color:var(--text)}
 .w-btn:active{transform:scale(.97)}

@@ -245,6 +245,26 @@ function renderPositions(list) {
   badge.classList.toggle('hidden', list.length === 0);
   const el = document.getElementById('positions-list');
   if (!list.length) { el.innerHTML = '<div class="empty-msg">\u041d\u0435\u0442 \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u0445 \u043f\u043e\u0437\u0438\u0446\u0438\u0439</div>'; return; }
+
+  // если карточки уже есть — только обновляем PnL без перерисовки
+  const existing = el.querySelectorAll('.pos-card');
+  if (existing.length === list.length) {
+    list.forEach((p, i) => {
+      const symPrice = priceCache[p.symbol] || currentPrice;
+      const pnl = calcPnl(p.direction, p.leverage, p.amount, p.entry_price, symPrice);
+      const pct = ((pnl / p.amount) * 100).toFixed(1);
+      const sign = pnl >= 0 ? '+' : '';
+      const cls  = pnl >= 0 ? 'green' : 'red';
+      const card = existing[i];
+      const pnlEl = card.querySelector('.pos-pnl');
+      const nowEl = card.querySelectorAll('.pos-grid span b')[1];
+      if (pnlEl) { pnlEl.className = `pos-pnl ${cls}`; pnlEl.textContent = `${sign}${fmtCur(pnl)} (${sign}${pct}%)`; }
+      if (nowEl) nowEl.textContent = fmt(symPrice);
+    });
+    return;
+  }
+
+  // первая отрисовка
   el.innerHTML = list.map(p => {
     const symPrice = priceCache[p.symbol] || currentPrice;
     const pnl = calcPnl(p.direction, p.leverage, p.amount, p.entry_price, symPrice);
@@ -259,13 +279,22 @@ function renderPositions(list) {
       <div class="pos-grid">
         <span>\u0412\u0445\u043e\u0434: <b>${fmt(p.entry_price)}</b></span>
         <span>\u0421\u0435\u0439\u0447\u0430\u0441: <b>${fmt(symPrice)}</b></span>
-        <span>\u0421\u0443\u043c\u043c\u0430: <b>${p.amount}</b></span>
-        <span>\u041e\u0431\u044a\u0451\u043c: <b>${fmt(p.amount * p.leverage)}</b></span>
+        <span>\u0421\u0443\u043c\u043c\u0430: <b>${fmtCur(p.amount)}</b></span>
+        <span>\u041e\u0431\u044a\u0451\u043c: <b>${fmtCur(p.amount * p.leverage)}</b></span>
       </div>
-      <div class="pos-pnl ${cls}">${sign}${pnl.toFixed(2)} \u043c\u043e\u043d\u0435\u0442 (${sign}${pct}%)</div>
+      <div class="pos-pnl ${cls}">${sign}${fmtCur(pnl)} (${sign}${pct}%)</div>
       <button class="close-btn" onclick="closePosition(${p.id})">\u0417\u0430\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0437\u0438\u0446\u0438\u044e</button>
     </div>`;
   }).join('');
+}
+
+// форматирование суммы в текущей валюте
+function fmtCur(usd) {
+  const sign = CUR_SIGNS[currency];
+  if (currency === 'usd') return `${sign}${usd.toFixed(2)}`;
+  if (currency === 'eur') return `${sign}${(usd * fxRates.eur).toFixed(2)}`;
+  if (currency === 'rub') return `${sign}${Math.round(usd * fxRates.rub).toLocaleString('ru')}`;
+  return `${sign}${usd.toFixed(2)}`;
 }
 
 function calcPnl(dir, lev, amt, entry, cur) {
@@ -326,7 +355,7 @@ async function openPosition() {
     });
     const d = await res.json();
     if (d.ok) {
-      showToast(`\u2705 \u041f\u043e\u0437\u0438\u0446\u0438\u044f #${d.position_id} \u043e\u0442\u043a\u0440\u044b\u0442\u0430`);
+      showToast(`\u2705 \u041f\u043e\u0437\u0438\u0446\u0438\u044f #${d.position_id} \u043e\u0442\u043a\u0440\u044b\u0442\u0430 \u043d\u0430 ${fmtCur(amt)}`);
       document.getElementById('trade-amount').value = '';
       await loadBalance();
       loadPositions();
@@ -343,7 +372,7 @@ async function closePosition(id) {
     });
     const d = await res.json();
     if (d.ok) {
-      showToast(`\u0417\u0430\u043a\u0440\u044b\u0442\u043e: ${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} \u043c\u043e\u043d\u0435\u0442`);
+      showToast(`\u0417\u0430\u043a\u0440\u044b\u0442\u043e: ${d.pnl >= 0 ? '+' : ''}${fmtCur(d.pnl)}`);
       await loadBalance();
       loadPositions();
     }

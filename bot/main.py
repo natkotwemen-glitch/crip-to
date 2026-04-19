@@ -12,32 +12,33 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 async def monitor_positions():
-    """Фоновая задача: проверяет ликвидацию и стоп-лосс каждые 30 сек"""
-    await asyncio.sleep(10)
+    """Фоновая задача: проверяет ликвидацию каждые 30 сек"""
+    await asyncio.sleep(15)
     while True:
         try:
             positions = db.get_all_open_positions()
             for pos in positions:
                 pos_id, user_id, symbol, direction, leverage, amount, entry_price, status, created_at = pos
-                current_price = await get_price(symbol)
-                if not current_price:
+                try:
+                    current_price = await get_price(symbol)
+                    if not current_price:
+                        continue
+                    pnl = calc_pnl(direction, leverage, amount, entry_price, current_price)
+                    if pnl <= -amount:
+                        db.close_position(pos_id, -amount)
+                        try:
+                            await bot.send_message(
+                                user_id,
+                                f"⚠️ Извините, но ваша позиция была ликвидирована.\n\n"
+                                f"📌 #{pos_id} {symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
+                                f"💵 Цена входа: ${entry_price:,.2f}\n"
+                                f"📉 Цена ликвидации: ${current_price:,.2f}\n"
+                                f"💸 Потеря: -{amount:.2f} USD"
+                            )
+                        except Exception:
+                            pass
+                except Exception:
                     continue
-                pnl = calc_pnl(direction, leverage, amount, entry_price, current_price)
-                # авто-ликвидация если убыток >= депозит
-                if pnl <= -amount:
-                    db.close_position(pos_id, -amount)
-                    try:
-                        await bot.send_message(
-                            user_id,
-                            f"⚠️ Извините, но ваша позиция была ликвидирована.\n\n"
-                            f"📌 #{pos_id} {symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
-                            f"💵 Цена входа: ${entry_price:,.2f}\n"
-                            f"📉 Цена ликвидации: ${current_price:,.2f}\n"
-                            f"💸 Потеря: -{amount:.2f} USD\n\n"
-                            f"Ваш депозит по этой позиции был полностью списан."
-                        )
-                    except Exception:
-                        pass
         except Exception as e:
             print(f"monitor error: {e}")
         await asyncio.sleep(30)

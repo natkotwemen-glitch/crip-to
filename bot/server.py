@@ -34,6 +34,18 @@ async def open_position(req):
         user_id, data['symbol'], data['direction'],
         data['leverage'], data['amount'], data['entry_price']
     )
+    # уведомление в Telegram
+    try:
+        from main import bot
+        await bot.send_message(
+            user_id,
+            f"✅ Позиция #{pos_id} открыта\n"
+            f"📌 {data['symbol']} {'LONG 📈' if data['direction'] == 'long' else 'SHORT 📉'} x{data['leverage']}\n"
+            f"💵 Цена входа: ${data['entry_price']:,.2f}\n"
+            f"💰 Сумма: {data['amount']:.2f} USD"
+        )
+    except Exception:
+        pass
     return web.json_response({'ok': True, 'position_id': pos_id})
 
 @routes.post('/close_position')
@@ -48,6 +60,19 @@ async def close_position(req):
         return web.json_response({'ok': False, 'error': 'Позиция не найдена'})
     pnl = calc_pnl(pos[3], pos[4], pos[5], pos[6], current_price)
     db.close_position(pos_id, pnl)
+    # уведомление в Telegram
+    try:
+        from main import bot
+        emoji = "🟢" if pnl >= 0 else "🔴"
+        await bot.send_message(
+            user_id,
+            f"{emoji} Позиция #{pos_id} закрыта\n"
+            f"📌 {pos[2]} {'LONG' if pos[3] == 'long' else 'SHORT'} x{pos[4]}\n"
+            f"💵 Вход: ${pos[6]:,.2f} | Выход: ${current_price:,.2f}\n"
+            f"{'💰' if pnl >= 0 else '💸'} PnL: {pnl:+.2f} USD"
+        )
+    except Exception:
+        pass
     return web.json_response({'ok': True, 'pnl': pnl})
 
 @routes.post('/deposit')

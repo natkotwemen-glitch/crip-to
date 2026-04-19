@@ -6,9 +6,41 @@ from config import BOT_TOKEN, WEBAPP_URL
 import database as db
 from handlers import user, trading, admin
 from server import create_app
+from utils.prices import get_price, calc_pnl
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+
+async def monitor_positions():
+    """Фоновая задача: проверяет ликвидацию и стоп-лосс каждые 30 сек"""
+    await asyncio.sleep(10)
+    while True:
+        try:
+            positions = db.get_all_open_positions()
+            for pos in positions:
+                pos_id, user_id, symbol, direction, leverage, amount, entry_price, status, created_at = pos
+                current_price = await get_price(symbol)
+                if not current_price:
+                    continue
+                pnl = calc_pnl(direction, leverage, amount, entry_price, current_price)
+                # авто-ликвидация если убыток >= депозит
+                if pnl <= -amount:
+                    db.close_position(pos_id, -amount)
+                    try:
+                        await bot.send_message(
+                            user_id,
+                            f"⚠️ Извините, но ваша позиция была ликвидирована.\n\n"
+                            f"📌 #{pos_id} {symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
+                            f"💵 Цена входа: ${entry_price:,.2f}\n"
+                            f"📉 Цена ликвидации: ${current_price:,.2f}\n"
+                            f"💸 Потеря: -{amount:.2f} USD\n\n"
+                            f"Ваш депозит по этой позиции был полностью списан."
+                        )
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"monitor error: {e}")
+        await asyncio.sleep(30)
 
 async def main():
     db.init_db()
@@ -16,13 +48,16 @@ async def main():
     dp.include_router(user.router)
     dp.include_router(trading.router)
 
-    # Кнопка меню -> открывает WebApp
     await bot.set_chat_menu_button(
         menu_button=MenuButtonWebApp(text="📈 Открыть биржу", web_app=WebAppInfo(url=WEBAPP_URL))
     )
-    await bot.set_my_commands([BotCommand(command="start", description="Запустить бота")])
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Запустить бота"),
+        BotCommand(command="balance", description="Мой баланс"),
+        BotCommand(command="positions", description="Мои позиции"),
+        BotCommand(command="admin", description="Админ панель"),
+    ])
 
-    # Запускаем API сервер и бота параллельно
     api_app = create_app()
     runner = web.AppRunner(api_app)
     await runner.setup()
@@ -30,6 +65,7 @@ async def main():
     await site.start()
     print("API сервер запущен на порту 8080")
 
+    asyncio.create_task(monitor_positions())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

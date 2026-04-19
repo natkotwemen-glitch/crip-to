@@ -177,6 +177,14 @@ async def admin_liquidate(call: CallbackQuery):
     pnl = calc_pnl(direction, leverage, amount, entry_price, current_price)
     db.close_position(pos_id, -amount)  # ликвидация = полный убыток
     from main import bot
-    await bot.send_message(user_id, f"💥 Позиция #{pos_id} ликвидирована!\n{symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\nУбыток: -{amount:.2f} USD")
+    await bot.send_message(
+        user_id,
+        f"⚠️ Извините, но ваша позиция была ликвидирована.\n\n"
+        f"📌 #{pos_id} {symbol} {'LONG' if direction == 'long' else 'SHORT'} x{leverage}\n"
+        f"💵 Цена входа: ${entry_price:,.2f}\n"
+        f"📉 Цена ликвидации: ${current_price:,.2f}\n"
+        f"💸 Потеря: -{amount:.2f} USD\n\n"
+        f"Ваш депозит по этой позиции был полностью списан."
+    )
     await call.answer(f"Позиция #{pos_id} ликвидирована.")
     await admin_positions(call)

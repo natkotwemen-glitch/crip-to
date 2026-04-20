@@ -278,10 +278,6 @@ function renderPositions(list) {
   }).join('');
 }
 
-function fmtCur(usd) {
-  return `\u20bd${Math.round(usd * fxRates.rub).toLocaleString('ru')}`;
-}
-
 function calcPnl(dir, lev, amt, entry, cur) {
   let ch = (cur - entry) / entry;
   if (dir === 'short') ch = -ch;

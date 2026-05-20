@@ -29,11 +29,13 @@ def main_menu():
 @router.message(CommandStart())
 async def start(message: Message):
     db.create_user(message.from_user.id, message.from_user.username)
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
     await message.answer(
         "👋 Добро пожаловать на OG Exchange!\n\n"
-        "Торгуй криптой с плечом до x100.\n"
-        "Нажми кнопку меню чтобы открыть биржу 📈",
-        reply_markup=main_menu()
+        "Торгуй криптой с плечом до x100.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="📈 Открыть биржу", web_app=WebAppInfo(url="https://natkotwemen-glitch.github.io/crip-to"))
+        ]])
     )
 
 @router.message(F.text == "💰 Баланс")

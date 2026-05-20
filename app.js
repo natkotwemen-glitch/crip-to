@@ -1,7 +1,7 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.expand(); tg.setHeaderColor?.('#161a1e'); }
 
-const API = 'https://crip-to-production.up.railway.app';
+const API = 'https://crip-to.onrender.com';
 const userId = tg?.initDataUnsafe?.user?.id || 0;
 let currentSymbol = 'BTC';
 let currentPrice = 0;

@@ -7,6 +7,10 @@ routes = web.RouteTableDef()
 def fmt_rub(amount):
     return f"₽{round(amount):,}".replace(',', ' ')
 
+@routes.get('/ping')
+async def ping(req):
+    return web.json_response({'ok': True})
+
 @routes.get('/balance')
 async def balance(req):
     user_id = int(req.rel_url.query.get('user_id', 0))
